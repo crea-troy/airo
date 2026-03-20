@@ -1,6 +1,6 @@
 # ⚡ AIRO — AI Resource Optimizer
 
-> Run AI workloads at full power on any machine. No PhD required.
+> Run AI workloads at full power on any machine.
 
 AIRO auto-detects your hardware and shows you exactly how to get maximum performance from your CPU, RAM, and GPU for AI workloads — with a single click.
 
