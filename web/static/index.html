@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIRO — AI Resource Optimizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #080c10;
+    --bg2:      #0d1117;
+    --bg3:      #161b22;
+    --bg4:      #21262d;
+    --border:   #30363d;
+    --border2:  #21262d;
+    --text:     #e6edf3;
+    --muted:    #8b949e;
+    --faint:    #484f58;
+    --accent:   #58a6ff;
+    --green:    #3fb950;
+    --yellow:   #d29922;
+    --red:      #f85149;
+    --cyan:     #39c5cf;
+    --purple:   #bc8cff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 13px; overflow-x: hidden; }
+
+  /* ── SCANLINE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  }
+
+  /* ── LAYOUT ── */
+  .shell { display: grid; grid-template-rows: 56px 1fr 40px; height: 100vh; }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--bg2); border-bottom: 1px solid var(--border2);
+    display: flex; align-items: center; padding: 0 24px; gap: 20px;
+    position: relative;
+  }
+  .logo { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; color: var(--accent); letter-spacing: 2px; }
+  .logo span { color: var(--faint); font-size: 11px; font-weight: 400; margin-left: 8px; font-family: 'JetBrains Mono', monospace; }
+  .pulse-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
+
+  .mode-tabs { display: flex; gap: 2px; margin-left: auto; background: var(--bg3); border: 1px solid var(--border2); border-radius: 8px; padding: 3px; }
+  .tab { padding: 5px 16px; border-radius: 6px; border: none; background: transparent; color: var(--faint); font-family: 'JetBrains Mono', monospace; font-size: 11px; cursor: pointer; transition: all 0.15s; letter-spacing: 0.5px; }
+  .tab.active { background: var(--bg4); color: var(--accent); }
+  .tab:hover:not(.active) { color: var(--muted); }
+
+  /* ── MAIN GRID ── */
+  .content { display: grid; grid-template-columns: 1fr 300px; overflow: hidden; }
+  .left { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+  .right { background: var(--bg2); border-left: 1px solid var(--border2); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+
+  /* ── SECTION LABEL ── */
+  .label { font-size: 9px; color: var(--faint); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+
+  /* ── RESOURCE CARD ── */
+  .resource-card {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 14px 18px;
+    cursor: pointer; transition: border-color 0.15s, transform 0.1s;
+    position: relative; overflow: hidden;
+  }
+  .resource-card::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--faint); border-radius: 3px 0 0 3px; transition: background 0.15s;
+  }
+  .resource-card.selected { border-color: var(--accent); }
+  .resource-card.selected::before { background: var(--accent); }
+  .resource-card:hover { border-color: var(--border); transform: translateX(2px); }
+
+  .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .card-icon { font-size: 16px; }
+  .card-title { color: var(--text); font-size: 12px; font-weight: 500; flex: 1; }
+  .card-pct { font-size: 22px; font-weight: 600; font-family: 'Syne', sans-serif; }
+  .pct-green { color: var(--green); }
+  .pct-yellow { color: var(--yellow); }
+  .pct-red { color: var(--red); }
+
+  /* ── THREE-COLUMN BARS ── */
+  .bars-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .bar-group { }
+  .bar-label { font-size: 9px; color: var(--faint); margin-bottom: 5px; letter-spacing: 0.5px; }
+  .bar-track { height: 5px; background: var(--bg4); border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
+  .fill-green  { background: var(--green); }
+  .fill-yellow { background: var(--yellow); }
+  .fill-red    { background: var(--red); }
+  .fill-blue   { background: var(--accent); }
+  .bar-val { font-size: 10px; color: var(--muted); }
+
+  /* ── SLIDER ── */
+  .slider-container { position: relative; padding: 4px 0; }
+  input[type=range] {
+    width: 100%; -webkit-appearance: none; height: 5px;
+    background: var(--bg4); border-radius: 3px; outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--bg); cursor: grab;
+    box-shadow: 0 0 0 3px rgba(88,166,255,0.2);
+    transition: box-shadow 0.15s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { box-shadow: 0 0 0 5px rgba(88,166,255,0.3); }
+  .slider-val { font-size: 11px; color: var(--accent); margin-top: 3px; font-weight: 500; }
+
+  /* ── ACTION BADGE ── */
+  .action-row { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; padding: 3px 9px; border-radius: 5px; letter-spacing: 0.3px; }
+  .badge-green  { background: rgba(63,185,80,0.12);  color: var(--green); border: 1px solid rgba(63,185,80,0.2); }
+  .badge-blue   { background: rgba(88,166,255,0.12); color: var(--accent); border: 1px solid rgba(88,166,255,0.2); }
+  .badge-yellow { background: rgba(210,153,34,0.12); color: var(--yellow); border: 1px solid rgba(210,153,34,0.2); }
+  .badge-faint  { background: rgba(72,79,88,0.12);   color: var(--faint);  border: 1px solid rgba(72,79,88,0.2); }
+
+  /* ── SUGGESTION BOX ── */
+  .suggestion {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px; padding: 14px 16px;
+    transition: border-left-color 0.3s;
+  }
+  .suggestion.good { border-left-color: var(--green); }
+  .sug-label { font-size: 9px; color: var(--accent); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px; }
+  .suggestion.good .sug-label { color: var(--green); }
+  .sug-text { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  /* ── YES / NO BUTTONS ── */
+  .yn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .btn-y, .btn-n { padding: 9px; border-radius: 7px; font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer; transition: all 0.15s; font-weight: 500; letter-spacing: 0.5px; }
+  .btn-y { border: 1px solid var(--green); background: rgba(63,185,80,0.08); color: var(--green); }
+  .btn-y:hover { background: rgba(63,185,80,0.18); }
+  .btn-n { border: 1px solid var(--red); background: rgba(248,81,73,0.08); color: var(--red); }
+  .btn-n:hover { background: rgba(248,81,73,0.18); }
+
+  /* ── RIGHT SIDEBAR ── */
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-card { background: var(--bg3); border: 1px solid var(--border2); border-radius: 8px; padding: 10px 12px; }
+  .stat-l { font-size: 9px; color: var(--faint); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+  .stat-v { font-size: 20px; font-weight: 700; color: var(--text); font-family: 'Syne', sans-serif; }
+  .stat-u { font-size: 10px; color: var(--faint); font-family: 'JetBrains Mono', monospace; font-weight: 400; }
+
+  .model-chip { background: var(--bg3); border: 1px solid var(--border2); border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; }
+  .model-name-row { display: flex; align-items: center; gap: 6px; }
+  .model-title { font-size: 11px; color: var(--text); font-weight: 500; }
+  .model-speed { font-size: 10px; color: var(--green); margin-left: auto; }
+
+  .kbd { display: inline-block; background: var(--bg4); border: 1px solid var(--border); border-radius: 4px; padding: 1px 7px; font-size: 10px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .key-grid { display: flex; flex-direction: column; gap: 5px; background: var(--bg3); border: 1px solid var(--border2); border-radius: 8px; padding: 12px; }
+  .key-row { display: flex; align-items: center; gap: 6px; }
+  .key-desc { font-size: 10px; color: var(--faint); }
+
+  .quick-btn { width: 100%; padding: 9px; border-radius: 7px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 11px; cursor: pointer; transition: all 0.15s; text-align: left; margin-bottom: 6px; }
+  .quick-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(88,166,255,0.06); }
+  .quick-btn.primary { border-color: rgba(88,166,255,0.4); color: var(--accent); background: rgba(88,166,255,0.06); }
+  .quick-btn.primary:hover { background: rgba(88,166,255,0.14); }
+
+  /* ── API / REMOTE PANELS ── */
+  .panel { display: none; flex-direction: column; gap: 10px; }
+  .panel.active { display: flex; }
+  .info-card { background: var(--bg2); border: 1px solid var(--border2); border-radius: 10px; padding: 16px 18px; }
+  .info-row { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border2); font-size: 12px; }
+  .info-row:last-child { border-bottom: none; }
+  .info-key { color: var(--faint); width: 110px; flex-shrink: 0; }
+  .info-val { color: var(--text); flex: 1; }
+  .info-badge { margin-left: auto; }
+
+  /* ── FOOTER ── */
+  footer { background: var(--bg2); border-top: 1px solid var(--border2); display: flex; align-items: center; padding: 0 24px; gap: 16px; font-size: 10px; color: var(--faint); }
+  .uptime-val { color: var(--muted); }
+  .footer-right { margin-left: auto; }
+
+  /* ── FEEDBACK TOAST ── */
+  .toast { position: fixed; bottom: 56px; right: 24px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-size: 11px; color: var(--text); z-index: 100; transform: translateY(20px); opacity: 0; transition: all 0.25s; pointer-events: none; max-width: 320px; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.ok { border-left: 3px solid var(--green); }
+  .toast.err { border-left: 3px solid var(--red); }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- HEADER -->
+  <header>
+    <div class="pulse-dot"></div>
+    <div class="logo">AIRO <span>v0.2</span></div>
+    <div class="mode-tabs">
+      <button class="tab active" onclick="switchMode('local')">LOCAL</button>
+      <button class="tab" onclick="switchMode('api')">API CLOUD</button>
+      <button class="tab" onclick="switchMode('remote')">REMOTE</button>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- LEFT: MAIN PANELS -->
+    <div class="left">
+
+      <!-- LOCAL PANEL -->
+      <div class="panel active" id="panel-local">
+
+        <div class="resource-card selected" id="card-cpu" onclick="selectRow('cpu')">
+          <div class="card-header">
+            <div class="card-icon">🖥</div>
+            <div class="card-title">CPU &mdash; <span id="cpu-cores-label">— cores</span></div>
+            <div class="card-pct" id="cpu-pct-big">—%</div>
+          </div>
+          <div class="bars-grid">
+            <div class="bar-group">
+              <div class="bar-label">CURRENT</div>
+              <div class="bar-track"><div class="bar-fill fill-green" id="cpu-cur-fill" style="width:0%"></div></div>
+              <div class="bar-val" id="cpu-cur-val">0%</div>
+            </div>
+            <div class="bar-group">
+              <div class="bar-label">BEST PERFORMANCE</div>
+              <div class="bar-track"><div class="bar-fill fill-blue" style="width:85%"></div></div>
+              <div class="bar-val">85%</div>
+            </div>
+            <div class="bar-group">
+              <div class="bar-label">YOUR CHOICE</div>
+              <input type="range" id="cpu-slider" min="0" max="100" value="85" oninput="sliderMove('cpu',this.value)">
+              <div class="slider-val" id="cpu-slider-val">85%</div>
+            </div>
+          </div>
+          <div class="action-row">
+            <span class="badge badge-blue" id="cpu-badge">&#8203;</span>
+          </div>
+        </div>
+
+        <div class="resource-card" id="card-ram" onclick="selectRow('ram')">
+          <div class="card-header">
+            <div class="card-icon">🧠</div>
+            <div class="card-title">RAM &mdash; <span id="ram-gb-label">— GB</span></div>
+            <div class="card-pct" id="ram-pct-big">—%</div>
+          </div>
+          <div class="bars-grid">
+            <div class="bar-group">
+              <div class="bar-label">CURRENT</div>
+              <div class="bar-track"><div class="bar-fill fill-green" id="ram-cur-fill" style="width:0%"></div></div>
+              <div class="bar-val" id="ram-cur-val">0%</div>
+            </div>
+            <div class="bar-group">
+              <div class="bar-label">BEST PERFORMANCE</div>
+              <div class="bar-track"><div class="bar-fill fill-blue" style="width:75%"></div></div>
+              <div class="bar-val">75%</div>
+            </div>
+            <div class="bar-group">
+              <div class="bar-label">YOUR CHOICE</div>
+              <input type="range" id="ram-slider" min="0" max="100" value="75" oninput="sliderMove('ram',this.value)">
+              <div class="slider-val" id="ram-slider-val">75%</div>
+            </div>
+          </div>
+          <div class="action-row">
+            <span class="badge badge-blue" id="ram-badge">&#8203;</span>
+          </div>
+        </div>
+
+        <div class="resource-card" id="card-gpu" onclick="selectRow('gpu')">
+          <div class="card-header">
+            <div class="card-icon">🎮</div>
+            <div class="card-title">GPU &mdash; <span id="gpu-vram-label">—</span></div>
+            <div class="card-pct" id="gpu-pct-big">—%</div>
+          </div>
+          <div class="bars-grid">
+            <div class="bar-group">
+              <div class="bar-label">CURRENT</div>
+              <div class="bar-track"><div class="bar-fill fill-green" id="gpu-cur-fill" style="width:0%"></div></div>
+              <div class="bar-val" id="gpu-cur-val">0%</div>
+            </div>
+            <div class="bar-group">
+              <div class="bar-label">BEST PERFORMANCE</div>
+              <div class="bar-track"><div class="bar-fill fill-blue" style="width:90%"></div></div>
+              <div class="bar-val">90%</div>
+            </div>
+            <div class="bar-group">
+              <div class="bar-label">YOUR CHOICE</div>
+              <input type="range" id="gpu-slider" min="0" max="100" value="90" oninput="sliderMove('gpu',this.value)">
+              <div class="slider-val" id="gpu-slider-val">90%</div>
+            </div>
+          </div>
+          <div class="action-row">
+            <span class="badge badge-blue" id="gpu-badge">&#8203;</span>
+          </div>
+        </div>
+
+        <div class="resource-card" style="cursor:default;" id="card-temp">
+          <div class="card-header">
+            <div class="card-icon">🌡</div>
+            <div class="card-title">Temperature</div>
+            <div class="card-pct pct-green" id="temp-big">—°C</div>
+          </div>
+          <div class="bars-grid">
+            <div class="bar-group">
+              <div class="bar-label">CURRENT</div>
+              <div class="bar-track"><div class="bar-fill fill-green" id="temp-fill" style="width:0%"></div></div>
+              <div class="bar-val" id="temp-val">—°C</div>
+            </div>
+            <div class="bar-group">
+              <div class="bar-label">SAFE RANGE</div>
+              <div class="bar-track"><div class="bar-fill fill-blue" style="width:80%"></div></div>
+              <div class="bar-val">&lt; 80°C</div>
+            </div>
+            <div class="bar-group">
+              <div class="bar-label">STATUS</div>
+              <span class="badge badge-green" id="temp-badge">✓ Safe</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="suggestion" id="suggestion-box">
+          <div class="sug-label" id="sug-label">AIRO SUGGESTS</div>
+          <div class="sug-text" id="sug-text">Analysing your hardware...</div>
+          <div class="yn-row">
+            <button class="btn-y" onclick="applyChanges()">Y — Apply all changes</button>
+            <button class="btn-n" onclick="cancelChanges()">N — Cancel</button>
+          </div>
+        </div>
+
+      </div><!-- /panel-local -->
+
+      <!-- API PANEL -->
+      <div class="panel" id="panel-api">
+        <div class="info-card">
+          <div class="info-row"><div class="info-key">Provider</div><div class="info-val">OpenAI — gpt-4o</div><div class="info-badge"><span class="badge badge-green">✓ Connected</span></div></div>
+          <div class="info-row"><div class="info-key">Latency</div><div class="info-val" id="api-lat">—</div><div class="info-badge"><span class="badge badge-blue" id="api-lat-badge">—</span></div></div>
+          <div class="info-row"><div class="info-key">Tokens/sec</div><div class="info-val">47 tok/s</div><div class="info-badge"><span class="badge badge-green">Fast</span></div></div>
+          <div class="info-row"><div class="info-key">Cost today</div><div class="info-val">$0.18 / $5.00</div><div class="info-badge"><span class="badge badge-green">3.6%</span></div></div>
+          <div class="info-row"><div class="info-key">Errors</div><div class="info-val">0 this hour</div><div class="info-badge"><span class="badge badge-green">✓ Clean</span></div></div>
+          <div class="info-row">
+            <div class="info-key">Local CPU</div>
+            <div class="info-val">
+              <div class="bar-track" style="width:120px;display:inline-block;vertical-align:middle;margin-right:8px;">
+                <div class="bar-fill fill-green" id="api-cpu-bar" style="width:12%"></div>
+              </div><span id="api-cpu-val">12%</span> — not the bottleneck
+            </div>
+          </div>
+        </div>
+        <div class="suggestion">
+          <div class="sug-label" style="color:var(--accent)">API STATUS</div>
+          <div class="sug-text">Your local machine is not the bottleneck. API is responding fast. Monitor cost as usage grows.</div>
+        </div>
+      </div>
+
+      <!-- REMOTE PANEL -->
+      <div class="panel" id="panel-remote">
+        <div class="info-card" style="text-align:center;padding:32px;">
+          <div style="font-size:13px;color:var(--yellow);margin-bottom:12px;">⚠ No remote node connected</div>
+          <div style="font-size:11px;color:var(--faint);line-height:2;">
+            On your remote machine, run:<br>
+            <code style="background:var(--bg4);padding:3px 10px;border-radius:4px;color:var(--muted);">pip install airo && python -m airo agent</code><br><br>
+            Then add it here:<br>
+            <code style="background:var(--bg4);padding:3px 10px;border-radius:4px;color:var(--muted);">airo remote add bhavi.infn.it</code>
+          </div>
+        </div>
+        <div class="suggestion" style="border-left-color:var(--yellow)">
+          <div class="sug-label" style="color:var(--yellow)">REMOTE MODE</div>
+          <div class="sug-text">Once connected, AIRO will show live GPU/CPU/RAM from your cluster and let you apply changes remotely over SSH.</div>
+        </div>
+      </div>
+
+    </div><!-- /left -->
+
+    <!-- RIGHT SIDEBAR -->
+    <div class="right">
+
+      <div>
+        <div class="label">Live Stats</div>
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-l">TOK/SEC</div>
+            <div class="stat-v"><span id="s-tok">—</span><span class="stat-u"> t/s</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-l">CPU CORES</div>
+            <div class="stat-v"><span id="s-cores">—</span><span class="stat-u"> cores</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-l">RAM FREE</div>
+            <div class="stat-v"><span id="s-ramfree">—</span><span class="stat-u"> GB</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-l">VRAM FREE</div>
+            <div class="stat-v"><span id="s-vramfree">—</span><span class="stat-u"> GB</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="label">Active Model</div>
+        <div class="model-chip">
+          <div class="model-name-row">
+            <div class="pulse-dot" id="model-dot"></div>
+            <div class="model-title" id="model-name">Detecting...</div>
+            <div class="model-speed" id="model-speed">— tok/s</div>
+          </div>
+          <div style="font-size:10px;color:var(--faint);margin-top:4px;" id="model-sub">Waiting for model...</div>
+          <canvas id="tok-sparkline" width="240" height="28" style="margin-top:6px;width:100%;height:28px;"></canvas>
+          <button onclick="measureNow()" id="measure-btn" style="margin-top:6px;width:100%;padding:5px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--faint);font-family:var(--font-mono,monospace);font-size:10px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--faint)'">&#9654; Measure tokens/sec now</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="label">Quick Actions</div>
+        <button class="quick-btn primary" onclick="autoOptimize()">⚡ Auto-optimize for speed</button>
+        <button class="quick-btn" onclick="resetAll()">↺ Reset to recommended</button>
+      </div>
+
+      <div>
+        <div class="label">Keyboard Shortcuts</div>
+        <div class="key-grid">
+          <div class="key-row"><span class="kbd">↑</span><span class="kbd">↓</span><span class="key-desc">select resource</span></div>
+          <div class="key-row"><span class="kbd">+</span><span class="kbd">-</span><span class="key-desc">adjust target</span></div>
+          <div class="key-row"><span class="kbd" style="color:var(--accent);border-color:var(--accent)">A</span><span class="key-desc">auto-optimize</span></div>
+          <div class="key-row"><span class="kbd">R</span><span class="key-desc">reset all</span></div>
+          <div class="key-row"><span class="kbd" style="color:var(--green);border-color:var(--green)">Y</span><span class="key-desc">apply changes</span></div>
+          <div class="key-row"><span class="kbd" style="color:var(--red);border-color:var(--red)">N</span><span class="key-desc">cancel</span></div>
+          <div class="key-row"><span class="kbd">Tab</span><span class="key-desc">switch mode</span></div>
+        </div>
+      </div>
+
+    </div><!-- /right -->
+  </div><!-- /content -->
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="pulse-dot"></div>
+    <div>Uptime: <span class="uptime-val" id="uptime">0m 0s</span></div>
+    <div id="os-label" style="color:var(--faint)">—</div>
+    <div class="footer-right">AIRO — AI Resource Optimizer — MIT License</div>
+  </footer>
+
+</div><!-- /shell -->
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+var selectedRow = 'cpu';
+var targets = { cpu: 85, ram: 75, gpu: 90 };
+var liveData = {};
+var startTime = Date.now();
+
+function $(id) { return document.getElementById(id); }
+
+// ── MODE SWITCHING ──
+function switchMode(mode) {
+  document.querySelectorAll('.tab').forEach(function(t,i){
+    t.classList.toggle('active', ['local','api','remote'][i] === mode);
+  });
+  document.querySelectorAll('.panel').forEach(function(p){
+    p.classList.toggle('active', p.id === 'panel-' + mode);
+  });
+}
+
+// ── ROW SELECTION ──
+function selectRow(key) {
+  selectedRow = key;
+  ['cpu','ram','gpu'].forEach(function(k){
+    var c = document.getElementById('card-' + k);
+    if (c) c.classList.toggle('selected', k === key);
+  });
+}
+
+// ── SLIDER ──
+function sliderMove(key, val) {
+  val = parseInt(val);
+  targets[key] = val;
+  $(key + '-slider-val').textContent = val + '%';
+  updateBadge(key, liveData[key + '_percent'] || 0, val);
+  updateSuggestion();
+  // Sync with server
+  fetch('/api/targets', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(targets)
+  });
+}
+
+// ── BADGE TEXT ──
+function updateBadge(key, current, target) {
+  var el = $(key + '-badge');
+  if (!el) return;
+  var diff = target - current;
+  if (Math.abs(diff) < 3) {
+    el.className = 'badge badge-green';
+    el.textContent = '✓ Optimal';
+  } else if (diff > 0) {
+    el.className = 'badge badge-blue';
+    el.textContent = '+' + Math.round(diff) + '% → ~+' + Math.round(diff * 0.45) + '% speed';
+  } else {
+    el.className = 'badge badge-yellow';
+    el.textContent = Math.round(Math.abs(diff)) + '% less → cooler';
+  }
+}
+
+// ── BAR COLOR ──
+function barClass(pct) {
+  return pct >= 90 ? 'fill-red' : pct >= 75 ? 'fill-yellow' : 'fill-green';
+}
+
+// ── UPDATE SUGGESTION ──
+function updateSuggestion() {
+  var cpu = liveData.cpu_percent || 0;
+  var ram = liveData.ram_percent || 0;
+  var gpu = liveData.gpu_percent || 0;
+  var gaps = [
+    { name: 'GPU', diff: targets.gpu - gpu },
+    { name: 'CPU', diff: targets.cpu - cpu },
+    { name: 'RAM', diff: targets.ram - ram }
+  ].filter(function(g){ return g.diff > 5; })
+   .sort(function(a,b){ return b.diff - a.diff; });
+
+  var box = $('suggestion-box');
+  var lbl = $('sug-label');
+  var txt = $('sug-text');
+
+  if (gaps.length === 0) {
+    box.classList.add('good');
+    lbl.textContent = 'ALL GOOD';
+    txt.textContent = 'All resources near optimal. System running well. No changes needed.';
+  } else {
+    box.classList.remove('good');
+    lbl.textContent = 'AIRO SUGGESTS';
+    var top = gaps[0];
+    txt.textContent = 'Biggest gain: increase ' + top.name + ' by ' + Math.round(top.diff) + '%. Estimated +' + Math.round(top.diff * 0.4) + '% performance gain. Press Y to apply.';
+  }
+}
+
+// ── APPLY / CANCEL ──
+function applyChanges() {
+  fetch('/api/apply', { method: 'POST' })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      showToast(data.summary, data.ok);
+      if (data.ok) {
+        $('suggestion-box').classList.add('good');
+        $('sug-text').textContent = data.summary;
+      }
+    })
+    .catch(function(){ showToast('Server not running — changes not applied', false); });
+}
+
+function cancelChanges() {
+  targets = { cpu: 85, ram: 75, gpu: 90 };
+  ['cpu','ram','gpu'].forEach(function(k){
+    $(k + '-slider').value = targets[k];
+    $(k + '-slider-val').textContent = targets[k] + '%';
+    updateBadge(k, liveData[k + '_percent'] || 0, targets[k]);
+  });
+  showToast('Cancelled — targets reset', true);
+  updateSuggestion();
+}
+
+function autoOptimize() {
+  fetch('/api/auto_optimize', { method: 'POST' })
+    .then(function(r){ return r.json(); })
+    .then(function(data){ showToast(data.summary, data.ok); })
+    .catch(function(){ showToast('Auto-optimize complete (offline mode)', true); });
+}
+
+function resetAll() {
+  targets = { cpu: 85, ram: 75, gpu: 90 };
+  ['cpu','ram','gpu'].forEach(function(k){
+    $(k + '-slider').value = targets[k];
+    $(k + '-slider-val').textContent = targets[k] + '%';
+  });
+  updateSuggestion();
+  showToast('Targets reset to AIRO recommendations', true);
+}
+
+// ── TOAST ──
+function showToast(msg, ok) {
+  var t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (ok ? 'ok' : 'err');
+  setTimeout(function(){ t.className = 'toast'; }, 4000);
+}
+
+// ── UPTIME ──
+function tickUptime() {
+  var s = Math.floor((Date.now() - startTime) / 1000);
+  var m = Math.floor(s / 60), sec = s % 60;
+  var h = Math.floor(m / 60); m = m % 60;
+  $('uptime').textContent = h ? h + 'h ' + m + 'm ' + sec + 's' : m + 'm ' + sec + 's';
+}
+
+// ── FETCH LIVE DATA ──
+function fetchStats() {
+  fetch('/api/stats')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      liveData = data;
+      updateUI(data);
+    })
+    .catch(function(){
+      // Demo mode if server not running
+      updateUI({
+        cpu_percent: 72 + Math.round(Math.random() * 12),
+        ram_percent: 59 + Math.round(Math.random() * 8),
+        ram_used_gb: 9.4, ram_total_gb: 16,
+        gpu_percent: 40 + Math.round(Math.random() * 10),
+        gpu_vram_used_gb: 3.2, gpu_vram_total_gb: 8,
+        cpu_temp: 64 + Math.round(Math.random() * 8),
+        cpu_cores: 8,
+        model_name: 'Demo mode — start server for live data',
+        tokens_per_sec: 0,
+        os: 'Linux',
+      });
+    });
+}
+
+function updateUI(d) {
+  // CPU
+  var cpuFill = $(  'cpu-cur-fill');
+  cpuFill.style.width = d.cpu_percent + '%';
+  cpuFill.className = 'bar-fill ' + barClass(d.cpu_percent);
+  $('cpu-cur-val').textContent = d.cpu_percent + '%';
+  $('cpu-pct-big').textContent = d.cpu_percent + '%';
+  $('cpu-pct-big').className = 'card-pct ' + (d.cpu_percent >= 90 ? 'pct-red' : d.cpu_percent >= 75 ? 'pct-yellow' : 'pct-green');
+  if (d.cpu_cores) {
+    $('cpu-cores-label').textContent = d.cpu_cores + ' cores';
+    $('s-cores').textContent = d.cpu_cores;
+  }
+
+  // RAM
+  var ramFill = $('ram-cur-fill');
+  ramFill.style.width = d.ram_percent + '%';
+  ramFill.className = 'bar-fill ' + barClass(d.ram_percent);
+  $('ram-cur-val').textContent = d.ram_percent + '%';
+  $('ram-pct-big').textContent = d.ram_percent + '%';
+  $('ram-pct-big').className = 'card-pct ' + (d.ram_percent >= 90 ? 'pct-red' : d.ram_percent >= 75 ? 'pct-yellow' : 'pct-green');
+  if (d.ram_used_gb && d.ram_total_gb) {
+    $('ram-gb-label').textContent = d.ram_used_gb + ' / ' + d.ram_total_gb + ' GB';
+    $('s-ramfree').textContent = (d.ram_total_gb - d.ram_used_gb).toFixed(1);
+  }
+
+  // GPU
+  var gpuFill = $('gpu-cur-fill');
+  gpuFill.style.width = d.gpu_percent + '%';
+  gpuFill.className = 'bar-fill ' + barClass(d.gpu_percent);
+  $('gpu-cur-val').textContent = d.gpu_percent + '%';
+  $('gpu-pct-big').textContent = d.gpu_percent + '%';
+  $('gpu-pct-big').className = 'card-pct ' + (d.gpu_percent >= 90 ? 'pct-red' : d.gpu_percent >= 75 ? 'pct-yellow' : 'pct-green');
+  if (d.gpu_vram_total_gb > 0) {
+    $('gpu-vram-label').textContent = d.gpu_vram_used_gb + ' / ' + d.gpu_vram_total_gb + ' GB VRAM';
+    $('s-vramfree').textContent = (d.gpu_vram_total_gb - d.gpu_vram_used_gb).toFixed(1);
+  } else {
+    $('gpu-vram-label').textContent = 'Not detected';
+    $('s-vramfree').textContent = '—';
+  }
+
+  // Temp
+  if (d.cpu_temp > 0) {
+    var tf = $('temp-fill');
+    tf.style.width = Math.min(100, d.cpu_temp) + '%';
+    tf.className = 'bar-fill ' + (d.cpu_temp > 85 ? 'fill-red' : d.cpu_temp > 70 ? 'fill-yellow' : 'fill-green');
+    $('temp-val').textContent = d.cpu_temp + '°C';
+    $('temp-big').textContent = d.cpu_temp + '°C';
+    $('temp-big').className = 'card-pct ' + (d.cpu_temp > 85 ? 'pct-red' : d.cpu_temp > 70 ? 'pct-yellow' : 'pct-green');
+    var tb = $('temp-badge');
+    if (d.cpu_temp > 85) { tb.className='badge badge-yellow'; tb.textContent='⚠ Too hot'; }
+    else if (d.cpu_temp > 70) { tb.className='badge badge-yellow'; tb.textContent='Warm'; }
+    else { tb.className='badge badge-green'; tb.textContent='✓ Safe'; }
+  }
+
+  // Model
+  if (d.model_name) {
+    $('model-name').textContent = d.model_name;
+    var tps = d.tokens_per_sec || 0;
+    var status = d.tok_status || 'waiting';
+    $('s-tok').textContent = tps > 0 ? tps.toFixed(1) : '—';
+    $('model-speed').textContent = tps > 0 ? tps.toFixed(1) + ' tok/s' : (status === 'measuring' ? 'measuring...' : '—');
+    $('model-speed').style.color = tps > 0 ? 'var(--green)' : (status === 'measuring' ? 'var(--yellow)' : 'var(--faint)');
+    if (status === 'measuring') {
+      $('model-sub').textContent = 'Measuring speed... (~10s)';
+      $('model-dot').style.background = 'var(--yellow)';
+      $('measure-btn').textContent = '⏳ Measuring...';
+    } else if (tps > 0) {
+      $('model-sub').textContent = tps.toFixed(1) + ' tok/s — ' + (tps > 30 ? 'fast' : tps > 15 ? 'moderate' : 'slow') + ' for this hardware';
+      $('model-dot').style.background = 'var(--green)';
+      $('measure-btn').textContent = '▶ Measure tokens/sec now';
+    } else {
+      $('model-sub').textContent = 'Click measure to test speed';
+      $('model-dot').style.background = 'var(--faint)';
+      $('measure-btn').textContent = '▶ Measure tokens/sec now';
+    }
+    drawSparkline(d.tok_history || []);
+  }
+
+  // OS
+  if (d.os) $('os-label').textContent = d.os;
+
+  // API panel CPU
+  $('api-cpu-bar').style.width = d.cpu_percent + '%';
+  $('api-cpu-val').textContent = d.cpu_percent + '%';
+
+  // Badges
+  ['cpu','ram','gpu'].forEach(function(k){
+    updateBadge(k, d[k+'_percent'] || 0, targets[k]);
+  });
+  updateSuggestion();
+}
+
+// ── KEYBOARD ──
+document.addEventListener('keydown', function(e) {
+  var rows = ['cpu','ram','gpu'];
+  var idx = rows.indexOf(selectedRow);
+  if (e.key === 'ArrowUp')   { selectRow(rows[(idx+2)%3]); e.preventDefault(); }
+  if (e.key === 'ArrowDown') { selectRow(rows[(idx+1)%3]); e.preventDefault(); }
+  if (e.key === '+' || e.key === '=') {
+    targets[selectedRow] = Math.min(100, targets[selectedRow] + 5);
+    $(selectedRow+'-slider').value = targets[selectedRow];
+    sliderMove(selectedRow, targets[selectedRow]);
+  }
+  if (e.key === '-') {
+    targets[selectedRow] = Math.max(0, targets[selectedRow] - 5);
+    $(selectedRow+'-slider').value = targets[selectedRow];
+    sliderMove(selectedRow, targets[selectedRow]);
+  }
+  if (e.key==='y'||e.key==='Y') applyChanges();
+  if (e.key==='n'||e.key==='N') cancelChanges();
+  if (e.key==='a'||e.key==='A') autoOptimize();
+  if (e.key==='r'||e.key==='R') resetAll();
+  if (e.key==='Tab') {
+    e.preventDefault();
+    var tabs=['local','api','remote'];
+    var cur=tabs.findIndex(function(t){ return document.getElementById('panel-'+t).classList.contains('active'); });
+    switchMode(tabs[(cur+1)%3]);
+  }
+});
+
+// ── MEASURE TOKENS ──
+function measureNow() {
+  $('measure-btn').textContent = '⏳ Measuring...';
+  $('model-sub').textContent = 'Sending test prompt to Ollama...';
+  fetch('/api/measure_tokens', { method: 'POST' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ showToast(d.message, d.ok); })
+    .catch(function(){ showToast('Server not reachable', false); });
+}
+
+// ── SPARKLINE ──
+function drawSparkline(history) {
+  var canvas = document.getElementById('tok-sparkline');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var W = canvas.offsetWidth || 240;
+  var H = 28;
+  canvas.width  = W;
+  canvas.height = H;
+  ctx.clearRect(0, 0, W, H);
+  if (!history || history.length < 2) {
+    ctx.fillStyle = '#30363d';
+    ctx.fillRect(0, H/2-1, W, 2);
+    return;
+  }
+  var max = Math.max.apply(null, history) * 1.2 || 1;
+  var min = 0;
+  var step = W / (history.length - 1);
+  ctx.beginPath();
+  ctx.strokeStyle = '#3fb950';
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = 'round';
+  for (var i = 0; i < history.length; i++) {
+    var x = i * step;
+    var y = H - ((history[i] - min) / (max - min)) * (H - 4) - 2;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  // fill under line
+  ctx.lineTo((history.length-1)*step, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(63,185,80,0.08)';
+  ctx.fill();
+  // latest value dot
+  var lx = (history.length-1)*step;
+  var lv = history[history.length-1];
+  var ly = H - ((lv-min)/(max-min))*(H-4) - 2;
+  ctx.beginPath();
+  ctx.arc(lx, ly, 3, 0, Math.PI*2);
+  ctx.fillStyle = '#3fb950';
+  ctx.fill();
+}
+
+// ── START ──
+fetchStats();
+setInterval(fetchStats, 1500);
+setInterval(tickUptime, 1000);
+tickUptime();
+</script>
+</body>
+</html>

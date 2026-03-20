@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIRO — AI Resource Optimizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #080c10;
+  --bg2:    #0d1117;
+  --bg3:    #161b22;
+  --border: #21262d;
+  --text:   #e6edf3;
+  --muted:  #8b949e;
+  --faint:  #484f58;
+  --accent: #58a6ff;
+  --green:  #3fb950;
+  --yellow: #d29922;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:14px;line-height:1.7;overflow-x:hidden}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(8,12,16,0.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 5%;display:flex;align-items:center;height:56px}
+.nav-logo{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--accent);letter-spacing:2px}
+.nav-links{display:flex;gap:24px;margin-left:auto;align-items:center}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:12px;transition:color 0.15s}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{background:var(--accent);color:#000;padding:6px 16px;border-radius:6px;font-size:12px;font-weight:500;text-decoration:none;transition:opacity 0.15s}
+.nav-cta:hover{opacity:0.85;color:#000}
+
+/* HERO */
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:80px 5% 60px;position:relative}
+.hero::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse 80% 50% at 50% 0%, rgba(88,166,255,0.07) 0%, transparent 70%);pointer-events:none}
+.badge{display:inline-flex;align-items:center;gap:6px;background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.25);color:var(--green);padding:4px 14px;border-radius:20px;font-size:11px;margin-bottom:24px;letter-spacing:0.5px}
+.badge-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+h1{font-family:'Syne',sans-serif;font-size:clamp(36px,6vw,72px);font-weight:800;line-height:1.1;margin-bottom:20px;letter-spacing:-1px}
+h1 span{color:var(--accent)}
+.hero-sub{font-size:clamp(14px,2vw,18px);color:var(--muted);max-width:560px;margin-bottom:40px;line-height:1.8}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:56px}
+.btn-primary{background:var(--accent);color:#000;padding:12px 28px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;text-decoration:none;transition:opacity 0.15s;display:inline-flex;align-items:center;gap:8px}
+.btn-primary:hover{opacity:0.85;color:#000}
+.btn-secondary{background:transparent;color:var(--text);padding:12px 28px;border-radius:8px;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:13px;text-decoration:none;transition:all 0.15s;display:inline-flex;align-items:center;gap:8px}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.install-cmd{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 24px;font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:12px}
+.install-cmd span{color:var(--green)}
+.copy-btn{background:var(--bg3);border:1px solid var(--border);color:var(--faint);padding:4px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all 0.15s}
+.copy-btn:hover{color:var(--text);border-color:var(--muted)}
+
+/* DASHBOARD PREVIEW */
+.preview-wrap{width:100%;max-width:900px;margin:0 auto;position:relative}
+.preview-wrap::before{content:'';position:absolute;inset:-40px;background:radial-gradient(ellipse at center, rgba(88,166,255,0.06) 0%, transparent 70%);pointer-events:none;z-index:-1}
+.preview-frame{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;font-size:11px}
+.pf-header{background:var(--bg3);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:12px}
+.pf-dots{display:flex;gap:5px}
+.pf-dot{width:10px;height:10px;border-radius:50%}
+.pf-title{color:var(--muted);font-size:10px;margin-left:auto;margin-right:auto}
+.pf-body{padding:12px 16px}
+.pf-row{display:grid;grid-template-columns:140px 1fr 1fr 1fr 180px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.pf-row:last-child{border-bottom:none}
+.pf-label{color:var(--text);font-size:10px}
+.mini-bar{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.mini-fill{height:100%;border-radius:3px}
+.pf-action{font-size:10px;padding:2px 8px;border-radius:4px}
+.act-boost{background:rgba(88,166,255,0.12);color:var(--accent)}
+.act-ok{background:rgba(63,185,80,0.12);color:var(--green)}
+
+/* SECTIONS */
+section{padding:80px 5%}
+.section-inner{max-width:1000px;margin:0 auto}
+.section-tag{font-size:10px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px}
+h2{font-family:'Syne',sans-serif;font-size:clamp(24px,4vw,40px);font-weight:700;margin-bottom:16px;line-height:1.2}
+.section-sub{color:var(--muted);max-width:500px;line-height:1.8;margin-bottom:48px}
+
+/* FEATURES GRID */
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.feature-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px 24px;transition:border-color 0.15s}
+.feature-card:hover{border-color:var(--accent)}
+.fc-icon{font-size:20px;margin-bottom:12px}
+.fc-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:600;margin-bottom:8px;color:var(--text)}
+.fc-desc{font-size:12px;color:var(--muted);line-height:1.7}
+
+/* MODES */
+.modes-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.mode-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px 24px}
+.mode-free{border-top:3px solid var(--green)}
+.mode-pro{border-top:3px solid var(--accent)}
+.mode-tag{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px}
+.tag-free{color:var(--green)}
+.tag-pro{color:var(--accent)}
+.mode-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:4px}
+.mode-price{font-size:11px;color:var(--muted);margin-bottom:16px}
+.mode-features{list-style:none;display:flex;flex-direction:column;gap:6px}
+.mode-features li{font-size:12px;color:var(--muted);display:flex;gap:8px}
+.mode-features li::before{content:'✓';color:var(--green);flex-shrink:0}
+.mode-features li.pro::before{color:var(--accent)}
+.mode-features li.no::before{content:'—';color:var(--faint)}
+.mode-features li.no{color:var(--faint)}
+
+/* STEPS */
+.steps{display:flex;flex-direction:column;gap:0}
+.step{display:grid;grid-template-columns:48px 1fr;gap:20px;padding:24px 0;border-bottom:1px solid var(--border)}
+.step:last-child{border-bottom:none}
+.step-num{width:36px;height:36px;border-radius:50%;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--accent);flex-shrink:0;margin-top:2px}
+.step-title{font-size:14px;font-weight:500;margin-bottom:6px;color:var(--text)}
+.step-desc{font-size:12px;color:var(--muted);line-height:1.7}
+.code-block{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:12px;color:var(--green);margin-top:8px;display:inline-block}
+
+/* BUSINESS */
+.business-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.biz-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px 24px}
+.biz-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:600;margin-bottom:8px;color:var(--accent)}
+.biz-desc{font-size:12px;color:var(--muted);line-height:1.7}
+
+/* CTA */
+.cta-section{text-align:center;padding:80px 5%;background:var(--bg2);border-top:1px solid var(--border)}
+.cta-section h2{margin-bottom:16px}
+.cta-sub{color:var(--muted);margin-bottom:32px}
+
+/* FOOTER */
+footer{background:var(--bg);border-top:1px solid var(--border);padding:24px 5%;display:flex;align-items:center;font-size:11px;color:var(--faint)}
+footer a{color:var(--faint);text-decoration:none}
+footer a:hover{color:var(--muted)}
+.footer-right{margin-left:auto;display:flex;gap:20px}
+
+@media(max-width:700px){
+  .modes-grid{grid-template-columns:1fr}
+  .business-grid{grid-template-columns:1fr}
+  .pf-row{grid-template-columns:100px 1fr 1fr}
+  .pf-row>*:nth-child(3),.pf-row>*:nth-child(5){display:none}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">⚡ AIRO</div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#install">Install</a>
+    <a href="https://github.com/YOUR_USERNAME/airo">GitHub</a>
+    <a href="https://github.com/YOUR_USERNAME/airo" class="nav-cta">Get Started</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="badge"><span class="badge-dot"></span>Open Source — Free Forever</div>
+  <h1>Run AI at<br><span>full power</span><br>on any machine</h1>
+  <p class="hero-sub">AIRO auto-detects your hardware and tells you exactly how to maximize performance for AI workloads. No config files. No PhD required.</p>
+  <div class="hero-actions">
+    <a href="#install" class="btn-primary">⚡ Get Started Free</a>
+    <a href="https://github.com/YOUR_USERNAME/airo" class="btn-secondary">★ Star on GitHub</a>
+  </div>
+  <div class="install-cmd">
+    <span>$</span> git clone github.com/YOUR_USERNAME/airo &amp;&amp; bash install.sh
+    <button class="copy-btn" onclick="navigator.clipboard.writeText('git clone https://github.com/YOUR_USERNAME/airo && bash install.sh');this.textContent='Copied!'">Copy</button>
+  </div>
+
+  <div style="height:48px"></div>
+
+  <!-- DASHBOARD PREVIEW -->
+  <div class="preview-wrap">
+    <div class="preview-frame">
+      <div class="pf-header">
+        <div class="pf-dots">
+          <div class="pf-dot" style="background:#f85149"></div>
+          <div class="pf-dot" style="background:#d29922"></div>
+          <div class="pf-dot" style="background:#3fb950"></div>
+        </div>
+        <div class="pf-title">⚡ AIRO v0.4 &nbsp;|&nbsp; [ LOCAL ] &nbsp; API CLOUD &nbsp; REMOTE</div>
+      </div>
+      <div class="pf-body">
+        <div style="display:grid;grid-template-columns:100px 1fr 90px 90px 170px;gap:8px;padding:6px 0;font-size:9px;color:var(--faint);letter-spacing:1px;border-bottom:1px solid var(--border);margin-bottom:4px">
+          <div>RESOURCE</div><div>CURRENT USE</div><div>BEST PERF</div><div>YOUR CHOICE</div><div>ACTION</div>
+        </div>
+        <div class="pf-row">
+          <div class="pf-label">▶ CPU &nbsp;8 cores</div>
+          <div><div class="mini-bar"><div class="mini-fill" style="width:78%;background:#d29922"></div></div></div>
+          <div><div class="mini-bar"><div class="mini-fill" style="width:85%;background:var(--accent)"></div></div></div>
+          <div><div class="mini-bar"><div class="mini-fill" style="width:85%;background:var(--accent)"></div></div></div>
+          <div><span class="pf-action act-boost">+7% → +3% speed</span></div>
+        </div>
+        <div class="pf-row">
+          <div class="pf-label">&nbsp;&nbsp;RAM &nbsp;9.8/16GB</div>
+          <div><div class="mini-bar"><div class="mini-fill" style="width:61%;background:var(--green)"></div></div></div>
+          <div><div class="mini-bar"><div class="mini-fill" style="width:75%;background:var(--accent)"></div></div></div>
+          <div><div class="mini-bar"><div class="mini-fill" style="width:75%;background:var(--accent)"></div></div></div>
+          <div><span class="pf-action act-boost">+14% → more headroom</span></div>
+        </div>
+        <div class="pf-row">
+          <div class="pf-label">&nbsp;&nbsp;GPU &nbsp;3.4/8GB</div>
+          <div><div class="mini-bar"><div class="mini-fill" style="width:42%;background:var(--green)"></div></div></div>
+          <div><div class="mini-bar"><div class="mini-fill" style="width:90%;background:var(--accent)"></div></div></div>
+          <div><div class="mini-bar"><div class="mini-fill" style="width:90%;background:var(--accent)"></div></div></div>
+          <div><span class="pf-action act-boost">+48% → +24% tok/s</span></div>
+        </div>
+        <div class="pf-row" style="border-bottom:none">
+          <div class="pf-label">&nbsp;&nbsp;TEMP</div>
+          <div style="font-size:10px;color:var(--green)">67°C</div>
+          <div style="font-size:10px;color:var(--accent)">&lt; 80°C</div>
+          <div>—</div>
+          <div><span class="pf-action act-ok">✓ safe</span></div>
+        </div>
+        <div style="margin-top:10px;padding:10px 12px;background:rgba(88,166,255,0.06);border:1px solid rgba(88,166,255,0.15);border-radius:6px;font-size:11px">
+          <span style="color:var(--accent)">💡 Biggest gain:</span>
+          <span style="color:var(--muted)"> increase GPU by 48% → ~+19% performance &nbsp;</span>
+          <span style="color:var(--green);cursor:pointer">[ Y — Apply ]</span>
+          <span style="color:var(--faint);cursor:pointer"> &nbsp;[ N — Skip ]</span>
+        </div>
+        <div style="margin-top:8px;padding:8px 12px;background:var(--bg3);border-radius:6px;display:flex;justify-content:space-between;font-size:10px;color:var(--faint)">
+          <span>◉ phi3:latest (Ollama) &nbsp;|&nbsp; <span style="color:var(--green)">23.4 tok/s</span></span>
+          <span>uptime 4m 32s</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="section-inner">
+    <div class="section-tag">Features</div>
+    <h2>Everything you need to run AI efficiently</h2>
+    <p class="section-sub">AIRO handles the hard parts automatically so you can focus on what you're actually building.</p>
+    <div class="features">
+      <div class="feature-card">
+        <div class="fc-icon">🔍</div>
+        <div class="fc-title">Auto-detection</div>
+        <div class="fc-desc">Detects your CPU, RAM, GPU (NVIDIA / AMD / Apple Silicon) silently on startup. Zero config required.</div>
+      </div>
+      <div class="feature-card">
+        <div class="fc-icon">📊</div>
+        <div class="fc-title">Live dashboard</div>
+        <div class="fc-desc">Real-time monitoring in your browser. See current use, best performance, and your target side by side.</div>
+      </div>
+      <div class="feature-card">
+        <div class="fc-icon">⚡</div>
+        <div class="fc-title">Live tokens/sec</div>
+        <div class="fc-desc">Measures actual tokens/sec from your running Ollama model. See exactly how fast your hardware is performing.</div>
+      </div>
+      <div class="feature-card">
+        <div class="fc-icon">🎮</div>
+        <div class="fc-title">One-click optimize</div>
+        <div class="fc-desc">AIRO calculates the best settings for your hardware. Press Y to apply CPU priority, GPU power mode, RAM swap, and Ollama context — all at once.</div>
+      </div>
+      <div class="feature-card">
+        <div class="fc-icon">🌐</div>
+        <div class="fc-title">Three modes</div>
+        <div class="fc-desc">Local machine, cloud API (OpenAI/Anthropic cost tracking), or remote cluster via SSH agent. Switch with Tab.</div>
+      </div>
+      <div class="feature-card">
+        <div class="fc-icon">🔧</div>
+        <div class="fc-title">Works with anything</div>
+        <div class="fc-desc">Ollama, llama.cpp, PyTorch, TensorFlow, or cloud APIs. AIRO is model-agnostic.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="install" style="background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="section-inner">
+    <div class="section-tag">Get Started</div>
+    <h2>Up and running in 60 seconds</h2>
+    <p class="section-sub">Three commands. Then open your browser.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div>
+          <div class="step-title">Clone and install</div>
+          <div class="step-desc">Works on Linux, Mac, and Windows. Requires Python 3.8+.</div>
+          <div class="code-block">$ git clone https://github.com/YOUR_USERNAME/airo &amp;&amp; cd airo &amp;&amp; bash install.sh</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div>
+          <div class="step-title">Start the web UI</div>
+          <div class="step-desc">AIRO auto-detects your hardware and starts a local server.</div>
+          <div class="code-block">$ python airo.py web</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div>
+          <div class="step-title">Open in browser</div>
+          <div class="step-desc">See your live hardware dashboard. Press Y to apply AIRO's recommended settings.</div>
+          <div class="code-block">http://localhost:7070</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing">
+  <div class="section-inner">
+    <div class="section-tag">Pricing</div>
+    <h2>Free forever. Pro for teams.</h2>
+    <p class="section-sub">The single-machine version is open source and always will be. Pro adds cluster management and team features.</p>
+    <div class="modes-grid">
+      <div class="mode-card mode-free">
+        <div class="mode-tag tag-free">Free — Open Source</div>
+        <div class="mode-title">Local</div>
+        <div class="mode-price">Always free · MIT License</div>
+        <ul class="mode-features">
+          <li>Single machine dashboard</li>
+          <li>Live CPU / RAM / GPU monitoring</li>
+          <li>One-click system optimization</li>
+          <li>Ollama + llama.cpp integration</li>
+          <li>Live tokens/sec measurement</li>
+          <li>Web UI + terminal dashboard</li>
+          <li class="no">Multi-node cluster</li>
+          <li class="no">Team analytics</li>
+          <li class="no">Remote agent</li>
+        </ul>
+      </div>
+      <div class="mode-card mode-pro">
+        <div class="mode-tag tag-pro">Pro — Coming Soon</div>
+        <div class="mode-title">Cluster</div>
+        <div class="mode-price">For research labs &amp; teams · Join waitlist</div>
+        <ul class="mode-features">
+          <li>Everything in Free</li>
+          <li pro class="pro">Multi-node cluster dashboard</li>
+          <li pro class="pro">Remote SSH agent</li>
+          <li pro class="pro">Team analytics &amp; history</li>
+          <li pro class="pro">API cost tracking per user</li>
+          <li pro class="pro">Slack / email alerts</li>
+          <li pro class="pro">Priority support</li>
+        </ul>
+      </div>
+      <div class="mode-card" style="border-top:3px solid var(--yellow)">
+        <div class="mode-tag" style="color:var(--yellow)">Enterprise</div>
+        <div class="mode-title">Custom</div>
+        <div class="mode-price">For large institutions · Contact us</div>
+        <ul class="mode-features">
+          <li>Everything in Pro</li>
+          <li pro class="pro">On-premise deployment</li>
+          <li pro class="pro">Custom integrations</li>
+          <li pro class="pro">SLA &amp; dedicated support</li>
+          <li pro class="pro">University / HPC clusters</li>
+          <li pro class="pro">Training &amp; onboarding</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW TO MAKE BUSINESS FROM THIS -->
+<section style="background:var(--bg2);border-top:1px solid var(--border)">
+  <div class="section-inner">
+    <div class="section-tag">Business Model</div>
+    <h2>How AIRO becomes a business</h2>
+    <p class="section-sub">The open source version builds trust and users. The Pro version serves the customers who genuinely need more.</p>
+    <div class="business-grid">
+      <div class="biz-card">
+        <div class="biz-title">1. Open source grows users</div>
+        <div class="biz-desc">Free local version gets shared on Reddit, HuggingFace, and GitHub. Researchers and developers adopt it. 1000 GitHub stars = credibility. This is how HashiCorp, Elastic, and GitLab started.</div>
+      </div>
+      <div class="biz-card">
+        <div class="biz-title">2. Research labs are the first customers</div>
+        <div class="biz-desc">Physics labs, university AI groups, and HPC centers run AI on clusters with no dedicated ML engineer. They will pay for a simple dashboard that shows them how to use their hardware better.</div>
+      </div>
+      <div class="biz-card">
+        <div class="biz-title">3. Pro waitlist captures intent</div>
+        <div class="biz-desc">This website has a "Join Pro waitlist" button. Every signup is a potential paying customer. 100 signups = enough to validate the Pro version is worth building.</div>
+      </div>
+      <div class="biz-card">
+        <div class="biz-title">4. Open core model</div>
+        <div class="biz-desc">Local monitoring stays free forever. Multi-node cluster management, team analytics, and remote agents are Pro features. Companies with 10+ GPU nodes will pay €50-200/month easily.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <h2>Start optimizing your AI today</h2>
+  <p class="cta-sub">Free, open source, one command to install.</p>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+    <a href="#install" class="btn-primary">⚡ Install Now — Free</a>
+    <a href="https://github.com/YOUR_USERNAME/airo" class="btn-secondary">★ Star on GitHub</a>
+  </div>
+  <div style="margin-top:32px;padding:16px 24px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;display:inline-block;font-size:12px;color:var(--muted)">
+    Join the Pro waitlist → <a href="mailto:airo@youremail.com" style="color:var(--accent);text-decoration:none">airo@youremail.com</a>
+  </div>
+</section>
+
+<footer>
+  <span>⚡ AIRO — AI Resource Optimizer &nbsp;·&nbsp; MIT License &nbsp;·&nbsp; Built by researchers for everyone</span>
+  <div class="footer-right">
+    <a href="https://github.com/YOUR_USERNAME/airo">GitHub</a>
+    <a href="mailto:airo@youremail.com">Contact</a>
+  </div>
+</footer>
+
+</body>
+</html>
